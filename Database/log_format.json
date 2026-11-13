@@ -1,0 +1,9 @@
+{
+  "event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2026-11-12T10:30:00Z",
+  "application": "Banking",
+  "level": "ERROR",
+  "message": "Database connection failed",
+  "response_time": 2500,
+  "status_code": 500
+}
