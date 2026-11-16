@@ -1,167 +1,125 @@
-
+import json
+import logging
 from contextlib import asynccontextmanager
-from uuid import UUID
 
-from fastapi import (
-    FastAPI,
-    HTTPException,
-    Request,
-    status
-)
+from fastapi import FastAPI, HTTPException, Request, status
 
 from config import settings
-from schemas import LogCreate, LogBatch
-from redis_client import (
-    create_redis_connection,
-    close_redis_connection
-)
+from redis_client import create_redis_connection, close_redis_connection
+from schemas import LogAccepted, LogBatch, LogBatchAccepted, LogCreate
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("cloudlog.api")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
-    # Connexion a Redis au demarrage
+    logger.info("Starting CloudLog API")
     app.state.redis = await create_redis_connection()
-
-    yield
-
-    # Fermeture de Redis a l'arret
-    await close_redis_connection(app.state.redis)
+    try:
+        yield
+    finally:
+        await close_redis_connection(app.state.redis)
+        logger.info("Stopped CloudLog API")
 
 
 app = FastAPI(
     title=settings.app_name,
     description="CloudLog - Distributed Log Analytics API",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 
-# 1. Accueil
 @app.get("/")
 async def home():
-
-    return {
-        "message": "Welcome to CloudLog API",
-        "version": "1.0.0",
-        "status": "running"
-    }
+    return {"service": settings.app_name, "version": "1.0.0"}
 
 
-# 2. Verification de l'API
 @app.get("/health")
 async def health():
+    # Liveness only: a Redis outage should not restart a healthy API process.
+    return {"status": "healthy", "service": "cloudlog-api"}
+
+
+@app.get("/ready")
+async def readiness(request: Request):
+    try:
+        await request.app.state.redis.ping()
+    except Exception as exc:
+        logger.warning("Readiness check failed: Redis is unavailable")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Redis is unavailable",
+        ) from exc
+    return {"status": "ready", "redis": "connected"}
+
+
+@app.post("/logs", status_code=status.HTTP_202_ACCEPTED, response_model=LogAccepted)
+async def receive_log(log: LogCreate, request: Request):
+    try:
+        await request.app.state.redis.lpush(
+            settings.redis_queue,
+            json.dumps(log.model_dump(mode="json")),
+        )
+    except Exception as exc:
+        logger.exception("Failed to enqueue event %s", log.event_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to enqueue log",
+        ) from exc
 
     return {
-        "status": "healthy",
-        "service": "cloudlog-api"
+        "event_id": log.event_id,
+        "status": "accepted",
+        "queue": settings.redis_queue,
     }
 
 
-# 3. Verification de Redis
-@app.get("/ready")
-async def readiness(request: Request):
-
+@app.post(
+    "/logs/bulk",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=LogBatchAccepted,
+)
+async def receive_bulk_logs(batch: LogBatch, request: Request):
     try:
-        await request.app.state.redis.ping()
-
-        return {
-            "status": "ready",
-            "redis": "connected"
-        }
-
-    except Exception:
-        raise HTTPException(
-            status_code=503,
-            detail="Redis is unavailable"
-        )
-
-
-# 4. Reception d'un seul log
-@app.post("/logs", status_code=status.HTTP_202_ACCEPTED)
-async def receive_log(
-    log: LogCreate,
-    request: Request
-):
-
-    try:
-        redis = request.app.state.redis
-
-        log_data = log.model_dump(mode="json")
-
-        await redis.lpush(
-            settings.redis_queue,
-            __import__("json").dumps(log_data)
-        )
-
-        return {
-            "event_id": str(log.event_id),
-            "status": "accepted",
-            "message": "Log added to processing queue"
-        }
-
-    except Exception:
-        raise HTTPException(
-            status_code=503,
-            detail="Unable to enqueue log"
-        )
-
-
-# 5. Reception de plusieurs logs
-@app.post("/logs/bulk", status_code=status.HTTP_202_ACCEPTED)
-async def receive_bulk_logs(
-    batch: LogBatch,
-    request: Request
-):
-
-    try:
-        redis = request.app.state.redis
-
-        pipeline = redis.pipeline(transaction=False)
-
+        # A transaction prevents a successful response for a partially queued batch.
+        pipeline = request.app.state.redis.pipeline(transaction=True)
         for log in batch.logs:
-
-            log_data = log.model_dump(mode="json")
-
             pipeline.lpush(
                 settings.redis_queue,
-                __import__("json").dumps(log_data)
+                json.dumps(log.model_dump(mode="json")),
             )
-
         await pipeline.execute()
-
-        return {
-            "status": "accepted",
-            "received": len(batch.logs),
-            "message": "Logs added to processing queue"
-        }
-
-    except Exception:
+    except Exception as exc:
+        logger.exception("Failed to enqueue batch of %d events", len(batch.logs))
         raise HTTPException(
-            status_code=503,
-            detail="Unable to enqueue logs"
-        )
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to enqueue logs",
+        ) from exc
+
+    logger.info("Accepted batch of %d events", len(batch.logs))
+    return {
+        "status": "accepted",
+        "accepted_count": len(batch.logs),
+        "event_ids": [log.event_id for log in batch.logs],
+        "queue": settings.redis_queue,
+    }
 
 
-# 6. Etat de la file d'attente
 @app.get("/queue/status")
 async def queue_status(request: Request):
-
     try:
-        redis = request.app.state.redis
-
-        pending = await redis.llen(
-            settings.redis_queue
-        )
-
-        return {
-            "queue": settings.redis_queue,
-            "pending_logs": pending,
-            "status": "available"
-        }
-
-    except Exception:
+        pending = await request.app.state.redis.llen(settings.redis_queue)
+    except Exception as exc:
+        logger.exception("Failed to read Redis queue status")
         raise HTTPException(
-            status_code=503,
-            detail="Unable to read queue status"
-        )
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to read queue status",
+        ) from exc
+    return {
+        "queue": settings.redis_queue,
+        "pending_logs": pending,
+        "status": "available",
+    }

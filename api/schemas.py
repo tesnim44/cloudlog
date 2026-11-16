@@ -27,7 +27,7 @@ class LogCreate(BaseModel):
 
     message: str = Field(
         min_length=1,
-        max_length=1000
+        max_length=2000
     )
 
     response_time: int = Field(
@@ -47,7 +47,7 @@ class LogCreate(BaseModel):
             raise ValueError(
                 "Timestamp must include a timezone"
             )
-        return value
+        return value.astimezone(timezone.utc)
 
     @field_validator("application")
     @classmethod
@@ -61,6 +61,14 @@ class LogCreate(BaseModel):
 
         return value
 
+    @field_validator("message")
+    @classmethod
+    def validate_message(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Message cannot be empty")
+        return value
+
 
 class LogBatch(BaseModel):
 
@@ -71,7 +79,13 @@ class LogBatch(BaseModel):
 
 
 class LogAccepted(BaseModel):
-
     event_id: UUID
     status: str
-    message: str
+    queue: str
+
+
+class LogBatchAccepted(BaseModel):
+    status: str
+    accepted_count: int
+    event_ids: list[UUID]
+    queue: str
