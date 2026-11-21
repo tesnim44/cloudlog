@@ -1,1 +1,3 @@
 .KubernetDoc
+# Kubernetes secrets
+k8s/postgres-secret.yaml
