@@ -1,10 +1,14 @@
+import os
 import redis
 import json
 import time
 from workers.worker import detect_anomalies
-REDIS_URL = "redis://localhost:6379/0"
-REDIS_QUEUE = "cloudlog:incoming"
 
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = os.getenv("REDIS_PORT", "6379")
+REDIS_DB = os.getenv("REDIS_DB", "0")
+REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+REDIS_QUEUE = os.getenv("REDIS_QUEUE", "cloudlog:incoming")
 
 def connect_to_redis():
     """Établit une connexion avec Redis."""

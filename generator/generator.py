@@ -6,7 +6,9 @@ from datetime import datetime, timezone
 import httpx
 
 
-API_URL = "http://localhost:8000/logs"
+import os
+
+API_URL = os.getenv("API_URL", "http://localhost:8000").rstrip("/") + "/logs"
 
 
 def generate_log():
