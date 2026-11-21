@@ -13,7 +13,7 @@ Il est séparé du README principal et de celui de l'API.
 
 ## 2. Créer le conteneur PostgreSQL
 
-Image utilisée : `postgres:16` (Docker Hub). Il faut la télécharger et créer le conteneur **avant** de pouvoir charger les données, car `fakedata.sql` s'exécute à l'intérieur de ce conteneur.
+Image utilisée : `postgres:16-alpine` (Docker Hub). Il faut la télécharger et créer le conteneur **avant** de pouvoir charger les données, car `fakedata.sql` s'exécute à l'intérieur de ce conteneur.
 
 ```powershell
 docker run -d --name pg-test `
@@ -21,7 +21,7 @@ docker run -d --name pg-test `
   -e POSTGRES_PASSWORD=test `
   -e POSTGRES_DB=cloudlog `
   -p 5432:5432 `
-  postgres:16
+  postgres:16-alpine
 ```
 
 | Option | Rôle |
@@ -29,7 +29,7 @@ docker run -d --name pg-test `
 | `--name pg-test` | nom du conteneur, utilisé dans les commandes suivantes |
 | `-e POSTGRES_*` | utilisateur, mot de passe et base créés au premier démarrage |
 | `-p 5432:5432` | rend la base accessible depuis le PC (`localhost:5432`) |
-| `postgres:16` | image de départ |
+| `postgres:16-alpine` | image de départ |
 
 Vérifier : `docker ps` doit montrer `pg-test` avec le statut `Up`.
 
