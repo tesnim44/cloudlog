@@ -1,0 +1,18 @@
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+
+metadata:
+  name: postgres-pvc
+  namespace: cloudlog
+
+spec:
+  accessModes:
+    - ReadWriteOnce
+
+  storageClassName: standard
+
+  resources:
+    requests:
+      storage: 2Gi
+
