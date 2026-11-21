@@ -4,8 +4,12 @@ import random
 from datetime import datetime, timezone
 import httpx
 
-API_URL = "http://localhost:8000/logs"
+import os
+
+API_URL = os.getenv("API_URL", "http://localhost:8000").rstrip("/") + "/logs"
+
 NUMBER_OF_LOGS = 100000
+
 
 def generate_log():
     log = {
@@ -15,11 +19,10 @@ def generate_log():
         "level": random.choice(["INFO", "WARNING", "ERROR"]),
         "message": "Performance test log",
         "response_time": random.randint(10, 5000),
-        "status_code": random.choice([200, 201, 400, 404, 500, 503])
+        "status_code": random.choice([200, 201, 400, 404, 500, 503]),
     }
 
     return log
-
 
 
 def send_logs():
@@ -41,6 +44,7 @@ def send_logs():
 
     print(f"Temps total : {total_time:.2f} secondes")
     print(f"Nombre de logs envoyés : {NUMBER_OF_LOGS}")
+
 
 if __name__ == "__main__":
     send_logs()
