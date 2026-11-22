@@ -103,7 +103,7 @@ with right:
     st.subheader("Erreurs dans le temps")
     df = query(
         f"""
-        SELECT date_trunc('second', timestamp) AS minute, COUNT(*) AS erreurs
+        SELECT date_trunc('minute', timestamp) AS minute, COUNT(*) AS erreurs
         FROM logs {WHERE} AND level = 'ERROR'
         GROUP BY 1 ORDER BY 1
     """,

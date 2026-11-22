@@ -14,12 +14,15 @@ k8s/*secret*.yaml
 
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
+**/*.py[cod]
 .pytest_cache/
+**/.pytest_cache/
 .venv/
 venv/
+api/venv/
+api/.venv/
 
 # Docker
 *.log
-
-
