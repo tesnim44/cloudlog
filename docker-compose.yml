@@ -1,3 +1,4 @@
+
 services:
   redis:
     image: redis:7-alpine
@@ -21,10 +22,13 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./Database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" && psql -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -tAc "SELECT to_regclass(''public.logs'')" | grep -q logs'
       interval: 5s
-      timeout: 3s
-      retries: 10
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     networks:
       - cloudlog-network
 
@@ -41,12 +45,10 @@ services:
         condition: service_healthy
     healthcheck:
       test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')",
-        ]
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"
       interval: 5s
       timeout: 3s
       retries: 10
@@ -80,7 +82,6 @@ services:
     build: ./dashbord
     ports:
       - "8501:8501"
-
     environment:
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}

@@ -1,0 +1,22 @@
+﻿apiVersion: batch/v1
+kind: Job
+metadata:
+  name: generator
+  namespace: cloudlog
+  labels:
+    app: generator
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: generator
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: generator
+          image: cloudlog-generator:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: API_URL
+              value: http://api:8000

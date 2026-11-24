@@ -1,0 +1,13 @@
+### Création du Namespace Kubernetes
+
+Dans le cadre du déploiement de CloudLog, nous avons créé un Namespace nommé `cloudlog` afin d'isoler et d'organiser les ressources Kubernetes de notre application.
+
+La configuration a été définie dans un fichier `namespace.yaml`, puis appliquée à l'aide de la commande :
+
+```bash
+kubectl apply -f k8s/namespace.yaml
+```
+
+Un avertissement relatif à l'absence de l'annotation `last-applied-configuration` a été affiché, car le Namespace avait initialement été créé avec une commande impérative. Kubernetes a automatiquement ajouté cette annotation et appliqué la configuration déclarative.
+
+La vérification avec `kubectl get namespace cloudlog --show-labels` permet de confirmer la création du Namespace et la présence de ses labels.
