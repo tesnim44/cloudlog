@@ -113,16 +113,7 @@ Le tableau suivant relie les critères du mini-projet aux différentes parties d
 
 CloudLog est composé de six services qui communiquent entre eux.
 
-```mermaid
-flowchart LR
-    G["Generator"] -->|"HTTP POST"| A["API FastAPI"]
-    A -->|"LPUSH"| R[("Redis")]
-    R -->|"BRPOP"| W["Worker"]
-    W -->|"INSERT"| P[("PostgreSQL")]
-    P -->|"SELECT"| D["Dashboard Streamlit"]
-    U(["Utilisateur"]) --> D
-    U --> A
-```
+`![alt text](ReadmeImages/workflow.png)
 
 ### 3.2 Rôle de chaque service
 
@@ -334,13 +325,20 @@ docker images
 
 Le projet contient deux Dockerfiles permettant de comparer une version multi-stage et une version simplifiée.
 
-Les résultats de taille doivent être renseignés à partir des mesures réellement obtenues avec `docker images`.
+![Capture du console](<ReadmeImages/dockerimages.png>)
 
-| Version | Description | Taille mesurée |
-|---|---|---|
-| Dashboard initial | Version de départ | À compléter |
-| Dashboard slim | Image Python slim | À compléter |
-| Dashboard multi-stage | Version optimisée | À compléter |
+| Version | Description | Taille mesurée (disque) | Taille du contenu |
+|---|---|---:|---:|
+| Dashboard initial (`cloudlog-dashboard-v0`) | Version de départ | **2,29 Go** | 568 Mo |
+| Dashboard slim (`cloudlog-dashboard-v1`) | Image Python slim | **868 Mo** | 200 Mo |
+| Dashboard multi-stage (`cloudlog-dashboard-v2`) | Version optimisée | **855 Mo** | 196 Mo |
+ 
+**Gains par rapport à la version initiale**
+ 
+| Version | Gain (disque) | Gain (contenu) |
+|---|---:|---:|
+| Slim | environ −62 % | environ −65 % |
+| Multi-stage | environ −63 % | environ −65 % |
 
 Cette comparaison permet d'observer l'effet du choix de l'image de base et de la construction multi-stage.
 
@@ -418,7 +416,6 @@ Remplacer `YOUR_LOCAL_PASSWORD` par un mot de passe local.
 | `API_URL` | Adresse de l'API pour le Generator |
 | `WORKER_LOG_EVERY` | Fréquence des messages de progression |
 
-**Important :** le fichier `.env` contient des informations sensibles. Il ne doit jamais être publié sur GitHub.
 
 ### 6.4 Démarrage de l'application
 
@@ -624,7 +621,17 @@ Définit un Job Kubernetes qui exécute le générateur de logs puis termine son
 | Secret | PostgreSQL | Gestion des identifiants |
 
 ### 7.6 Prérequis
+### 7.6.1 Installation de kubectl et Minikube (Windows)
 
+Docker Desktop doit être installé et démarré.
+
+```powershell
+winget install Kubernetes.kubectl
+winget install Kubernetes.minikube
+```
+
+
+Prérequis:
 - Docker Desktop.
 - Minikube.
 - kubectl.
@@ -671,6 +678,10 @@ minikube image load cloudlog-dashboard:dev
 minikube image load cloudlog-generator:dev
 ```
 
+Après les quatre commandes, vérifie que le cluster voit bien les images
+```powershell
+minikube image ls
+```
 Cette étape est importante : les images construites localement doivent être accessibles au runtime Docker du cluster Minikube.
 
 ### 7.9 Création du namespace
@@ -697,7 +708,7 @@ Exemple de création :
 kubectl create secret generic postgres-secret -n cloudlog `
   --from-literal=POSTGRES_DB=cloudlog `
   --from-literal=POSTGRES_USER=clouduser `
-  --from-literal=POSTGRES_PASSWORD=<choisir-un-mot-de-passe>
+  --from-literal=POSTGRES_PASSWORD=test
 ```
 
 Remplacer la valeur entre chevrons par le mot de passe choisi localement.
@@ -1241,7 +1252,6 @@ git checkout devops-kubernetes
 
 Créer le fichier `.env` à la racine avec les variables décrites dans la section 6.3.
 
-Ne jamais publier ce fichier sur GitHub.
 
 ### 11.4 Démarrage avec Docker Compose
 
